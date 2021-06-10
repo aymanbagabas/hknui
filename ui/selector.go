@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"fmt"
@@ -40,29 +40,6 @@ func selectFunc(item hkn.Item, index int, selected bool) string {
 	}
 
 	return fmt.Sprintf("%s%s%s\n", num, title, baseUrl)
-}
-
-func (m model) getItem(id int) *hkn.Item {
-	val, ok := m.items.Load(id)
-	if ok {
-		item := val
-		return item.(*hkn.Item)
-	} else {
-		return nil
-	}
-}
-
-func (m model) getCursorItemId() int {
-	var id int = -1
-	if len(m.list) > 0 {
-		id = m.list[m.cursor]
-	}
-	return id
-}
-
-func (m model) getItemUnderCursor() *hkn.Item {
-	item := m.getItem(m.getCursorItemId())
-	return item
 }
 
 func (m *model) updateFooter() string {

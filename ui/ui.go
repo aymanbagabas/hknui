@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"fmt"
@@ -15,6 +15,10 @@ import (
 	"github.com/pkg/browser"
 )
 
+const (
+	fetchLimit = 200
+)
+
 type view string
 
 const (
@@ -27,8 +31,6 @@ const (
 	footerHeight               = 2
 	useHighPerformanceRenderer = false
 )
-
-type updateViewMsg bool
 
 type itemMsg *hkn.Item
 
@@ -61,7 +63,7 @@ type model struct {
 	footer  string
 }
 
-func newModel() tea.Model {
+func NewModel() tea.Model {
 	client := hkn.NewClient()
 	s := spinner.NewModel()
 	s.Spinner = spinner.Dot
@@ -112,7 +114,7 @@ func (m *model) viewUp(n int) {
 			m.viewport.GotoTop()
 		}
 	case ArticleView:
-		m.viewport.HalfViewUp()
+		m.viewport.LineUp(n)
 	}
 }
 
@@ -132,11 +134,11 @@ func (m *model) viewDown(n int) {
 			m.viewport.GotoBottom()
 		}
 	case ArticleView:
-		m.viewport.HalfViewDown()
+		m.viewport.LineDown(n)
 	}
 }
 
-func (m *model) updateItemUnderCursor() tea.Cmd {
+func (m *model) updateItemUnderCursor(force bool) tea.Cmd {
 	var cmds []tea.Cmd
 	if m.cursor >= 0 && m.cursor < len(m.list) {
 		itemId := m.list[m.cursor]
@@ -144,8 +146,8 @@ func (m *model) updateItemUnderCursor() tea.Cmd {
 		if ok {
 			item := item.(hkn.Item)
 			m.itemId = itemId
-			cmds = append(cmds, m.updateItem(itemId, true))
-			cmds = append(cmds, m.updateItems(item.Kids, true))
+			cmds = append(cmds, m.updateItem(itemId, force))
+			cmds = append(cmds, m.updateItems(item.Kids, force))
 		}
 	}
 	return tea.Batch(cmds...)
@@ -172,7 +174,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case storiesMsg:
 		m.list = msg
 		cmds = append(cmds, m.updateItems(m.list, false))
-		cmds = append(cmds, m.updateItemUnderCursor())
+		cmds = append(cmds, m.updateItemUnderCursor(true))
 	case itemMsg:
 		if msg == nil {
 			break
@@ -181,15 +183,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.items.Store(item.ID, item)
 		switch item.Type {
 		case "story":
-			updateViewport = true
-		case "comment":
-			if m.view == ArticleView {
-				updateViewport = true
-			}
 			if m.view == StoryView {
-				cmds = append(cmds, m.updateItems(item.Kids, false))
 				updateViewport = true
 			}
+			cmds = append(cmds, m.updateItems(item.Kids, false))
+		case "comment":
+			cmds = append(cmds, m.updateItems(item.Kids, false))
 		}
 
 	case tea.MouseMsg:
@@ -226,7 +225,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "pgdown", "d":
 				m.viewDown(m.viewport.Height / 2)
 
+			case "g":
+				m.viewport.GotoTop()
+
+			case "G":
+				m.viewport.GotoBottom()
+
 			}
+			cmds = append(cmds, m.updateItemUnderCursor(false))
 
 		case StoryView:
 			switch msg.String() {
@@ -248,23 +254,32 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 				m.viewport.GotoTop()
 				cmds = append(cmds, m.refreshStories(m.selectorType))
+				cmds = append(cmds, m.updateItemUnderCursor(true))
 				// m.loading = true
 
 			case "up", "k":
 				m.viewUp(1)
-				cmds = append(cmds, m.updateItemUnderCursor())
+				cmds = append(cmds, m.updateItemUnderCursor(true))
 
 			case "down", "j":
 				m.viewDown(1)
-				cmds = append(cmds, m.updateItemUnderCursor())
+				cmds = append(cmds, m.updateItemUnderCursor(true))
 
 			case "pgup", "u":
 				m.viewUp(m.viewport.Height / 2)
-				cmds = append(cmds, m.updateItemUnderCursor())
+				cmds = append(cmds, m.updateItemUnderCursor(true))
 
 			case "pgdown", "d":
 				m.viewDown(m.viewport.Height / 2)
-				cmds = append(cmds, m.updateItemUnderCursor())
+				cmds = append(cmds, m.updateItemUnderCursor(true))
+
+			case "g":
+				m.cursor = 0
+				m.viewport.GotoTop()
+
+			case "G":
+				m.cursor = len(m.list) - 1
+				m.viewport.GotoBottom()
 
 			case "right", "l":
 				m.view = ArticleView
@@ -283,14 +298,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.viewport.GotoTop()
 					}
 				}
+
+			case "o":
+				browser.OpenURL(fmt.Sprintf("https://news.ycombinator.com/item?id=%d", m.itemId))
+
 			}
 		}
 		updateViewport = true
 
-		if msg.String() == "o" {
-			id := fmt.Sprint(m.itemId)
-			browser.OpenURL("https://news.ycombinator.com/item?id=" + id)
-		}
 	case tea.WindowSizeMsg:
 		width := msg.Width
 		height := msg.Height
@@ -347,18 +362,4 @@ func (m *model) View() string {
 	footer := fmt.Sprintf("\n%s", m.footer)
 
 	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer)
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

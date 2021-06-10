@@ -11,4 +11,5 @@ require (
 	github.com/lukakerr/hkn v0.0.0-20190218004349-b4aa957c3360
 	github.com/muesli/reflow v0.2.1-0.20210115123740-9e1d0d53df68
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
+	github.com/spf13/cobra v1.1.3
 )

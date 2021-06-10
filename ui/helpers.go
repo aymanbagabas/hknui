@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"log"
@@ -147,4 +147,18 @@ func (m *model) stillLoading() bool {
 
 func (m model) numOfLines() int {
 	return len(strings.Split(m.content, "\n"))
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

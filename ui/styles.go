@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	lg "github.com/charmbracelet/lipgloss"
